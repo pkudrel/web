@@ -9,23 +9,32 @@ title: Getting Started
 
 # Getting Started
 
-This article walks us through the most essential parts to know when working with NUKE.
+This article gives a tour through the most essential parts to know when working with NUKE.
 
-## Prerequisites
+## Introduction
 
-Only for the setup, we need to install the global tool:
+NUKE follows the **principle of low ceremony**, which means that builds are executed with little to no requirements - which includes required knowledge as well as required tools. Since builds are written as simple C# console applications, they ensure **native integration with existing IDEs** like VisualStudio, JetBrains Rider or VSCode. Features like debugging, navigation and refactorings will just work out-of-the-box. Also NuGet packages can be consumed the usual way, by adding package references. There are simply no limitations compared to any other C# project. The most traditional way to execute a build is to invoke one of the **generated bootstrapping scripts** (_build.ps1_ or _build.sh_). More information can be found in the [bootstrapping](#bootstrapping) and [build invocation](#build-invocation) sections.
+
+### Extended Tooling
+
+Although NUKE integrates natively with existing tooling, we provide additional tools and extensions to offer the best user-experience for a build system. The global tool `Nuke.GlobalTool` helps with the initial setup and also allows for a more convenient:
 
 ```
-dotnet tool install -g Nuke.GlobalTool
+# For global availability
+dotnet tool install Nuke.GlobalTool --global
+
+# For one-time availability
+dotnet tool install Nuke.GlobalTool --tool-path ./nuke
 ```
 
-Besides that, NUKE is designed to integrate natively with every IDE. However, for a better user experience, we recommend to check out the available extensions for:
+Extensions can be installed for some of the most popular IDEs:
 
 - [JetBrains ReSharper](https://resharper-plugins.jetbrains.com/packages/ReSharper.Nuke/)
 - [JetBrains Rider](https://plugins.jetbrains.com/plugin/10803-nuke-support)
 - [VisualStudio Code](https://marketplace.visualstudio.com/items?itemName=nuke.support)
 
-Typically, these extensions allow for convenient execution of build targets.
+Typically, these extensions offer a convenient way to execute build targets in different modes. For instance, either in run or debug mode, or with or without dependencies. Also they include code snippets to write targets more quickly.
+
 
 ## Build Setup
 
@@ -39,8 +48,6 @@ nuke
 nuke :setup
 ```
 
-Although `nuke :setup` overwrites existing parts of the build, it is helpful to update bootstrapping files to the latest available version. Using a diff tool usually helps to resolve this. 
-
 During the setup, a wizard will prompt for the following questions:
 
 - Which **solution** should be the default?
@@ -51,39 +58,29 @@ During the setup, a wizard will prompt for the following questions:
 - What should be the **location** for the build project?
 - What should be the **name** for the build project?
 
-It is recommended to choose **.NET Core** as the platform. This solely indicates that the build project is built with .NET Core. The build will still be able to build projects based on the full .NET Framework.
+It is strongly recommended to choose **.NET Core** as the platform. This solely indicates that the build project is built with .NET Core. The build will still be able to compile projects based on the full .NET Framework.
 
-### Effective changes
+Additionally, when selecting a default solution, the wizard will continue with more specific questions to provide an even better default build implementation. For example:
+
+- Use either _.NET Core SDK_ or _.NET Framework/Mono_ for compilation
+- Are source files located in either `./src` or `./source`
+- Are packages moved to either `./output` or `./artifacts`
+- ... and many more smartness!
+
+### Effective Changes
 
 During execution, the following changes will be applied:
 
-- Generate a _.nuke_ configuration file in the root directory, which references the chosen solution file
-- Generate a [_build.ps1_](https://raw.githubusercontent.com/nuke-build/nuke/master/bootstrapping/build.ps1) and [_build.sh_](https://raw.githubusercontent.com/nuke-build/nuke/master/bootstrapping/build.sh) in the current directory
-- Copy templates for the build project and minimal build file ([.NET Framework/Mono](https://raw.githubusercontent.com/nuke-build/nuke/master/bootstrapping/Build.netfx.cs) or [.NET Core](https://raw.githubusercontent.com/nuke-build/nuke/master/bootstrapping/Build.netcore.cs))
-- Add build project to the solution file (without build configuration)
+- Generate a _.nuke_ marker file in the root directory
+- Generate a _build.ps1_ and _build.sh_ file in the current directory
+- Copy templates for the build project and [build class](https://github.com/nuke-build/nuke/blob/develop/source/Nuke.GlobalTool/templates/Build.cs)
+- If a solution was selected, the build project is added
 
-_Note: for general awareness, we recommend to review the applied changes using `git diff` or similar tools._ 
-
-## Build Invocation
-
-In order to invoke NUKE, we can use the global tool or one of the bootstrapping scripts that corresponds to our operating-system:
-
-```powershell
-# Global Tool (anywhere below .nuke file)
-nuke [parameters]
-
-# PowerShell
-./build.ps1 [parameters]
-
-# Bash
-./build.sh [parameters]
-```
-
-_Note: the global tool is in fact just a wrapper for the script invocations._
+_Note: for general awareness, we recommend to review applied changes using `git diff` or similar tools. The setup can also be re-invoked via `nuke :setup` to update the bootstrapping files to the latest version._
 
 ### Bootstrapping
 
-The bootstrapping scripts _build.ps1_  and _build.sh_ are taking care of executing our build project. Lets have a closer look how this is actually accomplished when choosing .NET Core and .NET Framework/Mono as the platform.
+The bootstrapping scripts _build.ps1_  and _build.sh_ take care of compiling and executing the build project. What is actually happening, depends on the choice of either .NET Core or .NET Framework/Mono as the platform.
 
 For **.NET Core**, the script will perform the following steps:
 
@@ -101,20 +98,51 @@ For **.NET Framework/Mono**, the script will perform the following steps:
 3. Install and execute the _Nuke.MSBuildLocator_, which determines the MSBuild executable
 4. Compile and execute the build project
 
+## Build Invocation
+
+In order to invoke NUKE, we can use the global tool or one of the bootstrapping scripts that corresponds to our operating-system:
+
+```powershell
+# Global Tool (executed from anywhere below .nuke file)
+nuke [parameters]
+
+# PowerShell
+./build.ps1 [parameters]
+
+# Bash
+./build.sh [parameters]
+```
+
+_Note: the global tool is in fact just a wrapper for the script invocations._
+
 ### Argument Specification
 
-Build arguments can simply be passed to the [build invocation](#build-invocation). Below, some of the predefined arguments are explained:
+Input arguments can simply be passed to the [build invocation](#build-invocation). Below, some of the predefined arguments are explained:
 
-```
-build [targets] [-configuration <value>] [-skip [targets]] [...]
-```
-
-- `target`: defines the target(s) to be executed; multiple targets are separated by plus sign (i.e., `compile+pack`); if no target is defined, the _default_ will be executed
-- `-configuration <value>`: defines the configuration to build. Default is _debug_
+- `-target`: defines the target(s) to be executed; multiple targets are separated by plus sign (i.e., `compile+pack`); if no target is defined, the _default_ will be executed; can also be positional as first argument
 - `-verbosity <value>`: supported values are `quiet`, `minimal`, `normal` and `verbose`
-- `-skip [targets]`: if no target is defined, only the explicit stated targets will be executed; multiple targets are separated by plus sign (i.e, `-skip clean+push`)
+- `-skip [targets]`: if no target is defined, only the invoked targets are executed; multiple targets are separated by plus sign (i.e, `-skip clean+push`)
 - `-graph`: will generate a HTML view of target dependencies
 - `-help`: will show further information about available targets and parameters
+
+For better understanding, here are a couple of examples:
+
+```
+# Execute a single target Pack
+nuke pack
+
+# Execute two targets Pack and Test
+nuke pack+test
+
+# Execute the default target and skip all dependent targets
+nuke -skip
+
+# Execute Pack but skip Clean and Compile
+nuke -skip clean+compile -target pack
+
+# Show help (other arguments are ignored for convenience)
+nuke -target compile -help
+```
 
 NUKE also provides a convenient approach to [declare additional parameters](#parameter-declaration).
 
@@ -148,26 +176,21 @@ The fluent syntax allows to set further target specific options:
 
 ### Predefined properties
 
-The `NukeBuild` base class provides predefined properties according to [established best practices](https://gist.github.com/davidfowl/ed7564297c61fe9ab814):
+The `NukeBuild` base class provides predefined properties:
 
+- `RootDirectory`: directory where the `.nuke` file is located; usually the repository root
+- `TemporaryDirectory`: temporary directory at `/.tmp`
+- `Host`: build execution host (i.e., Console, Jenkins, TeamServices, TeamCity, ...)
+- `IsLocalBuild`/`IsServerBuild`: flag that indicates whether the build is running locally (console host) or on a server (CI host)
 - `SkippedTargets`: targets that are skipped via the `-skip` parameter
 - `InvokedTargets`: targets that are directly invoked from command-line
 - `ExecutingTargets`: targets that are part of the execution list
-- `Host`: build execution host (i.e., Console, Jenkins, TeamServices, TeamCity, ...)
-- `IsLocalBuild`/`IsServerBuild`: flag that indicates whether the build is running locally (console host) or on a server (CI host)
-- `Configuration`: either `Debug` for local builds or `Release` for server builds
-- `RootDirectory`: directory where the `.nuke` file is located; usually the repository root
-- `SolutionFile`/`SolutionDirectory`: reference to the solution file/directory defined via `.nuke`
-- `TemporaryDirectory`: temporary directory at `/.tmp`
-- `OutputDirectory`: output directory at `/output`
-- `ArtifactsDirectory`: artifacts directory at `/artifacts`
-- `SourceDirectory`: source directory at either `/src` or `/source`
 
 ### CLT Wrappers
 
-NUKE ships with a lot of wrapper APIs for command-line tools like _MSBuild_, _NuGet_, _xUnit.net_  or _OpenCover_. These wrapper APIs are generated from [JSON specification files](https://github.com/nuke-build/nuke/tree/develop/build/specifications), which can either be written manually, e.g. for smaller internal company tools, or converted from other sources like we do for the [Docker](https://github.com/nuke-build/docker/) and [Azure](https://github.com/nuke-build/azure/) addons. Generating code from specifications allows to provide a rich and consistent API with minimal effort.
+NUKE ships with a lot of wrapper APIs for command-line tools like _MSBuild_, _NuGet_, _xUnit.net_  or _OpenCover_. These wrapper APIs are generated from so-called [specification files](https://github.com/nuke-build/nuke/tree/develop/build/specifications), which can either be written manually, e.g. for smaller internal company tools, or converted from other sources like we do for the [Docker](https://github.com/nuke-build/docker/) and [Azure](https://github.com/nuke-build/azure/) addons. Generating code from specifications allows to provide a rich and consistent API with minimal effort.
 
-A call like `msbuild.exe /nologo /targets:Restore;Build /p:configuration=Release /maxCpuCount:2` can easily be constructed using the `MSBuildTasks`:
+A call like `msbuild.exe Solution.sln /nologo /targets:Restore;Build /p:configuration=Release /maxCpuCount:2` can easily be constructed using the `MSBuildTasks` with either fluent API or string interpolation. Whatever is preferred:
 
 ```csharp
 // using static Nuke.Common.Tools.MSBuild.MSBuildTasks;
@@ -178,14 +201,16 @@ MSBuild(s => s
     .SetTargets("Restore", "Build")
     .SetConfiguration("Release")
     .SetMaxCpuCount(2));
+    
+MSBuild($"{SolutionFile} /p:configuration={Configuration} ...");
 ```
 
-The generated types implement the following features:
+Such generated task classes implement the following features:
 
 - **Tool path resolution:** whenever possible, the tool path will be set automatically:
     - **Package references:** referencing a NuGet package in the build project, either via [`PackageReference`](https://docs.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files) or [packages.config](https://docs.microsoft.com/en-us/nuget/reference/packages-config), allows to resolve the executable path from the installed package.
     - **PATH variable:** using the tools `where` (Unix) and `which` (Windows) the required executable is attempted to be resolved from the `PATH` environment variable.
-    - **Environment variables:** for any task class, the environment variable `[TASKNAME]_EXE` can be used to provide the required executable. This takes precedence over other resolution methods.
+    - **Environment variables:** for any task class, the environment variable `[TOOL]_EXE` can be used to provide the required executable. This takes precedence over other resolution methods.
 - **Argument construction:** arguments that must be passed can be constructed using a fluent API. Every call creates a new instance, thus allows easy composition. The fluent API includes the following methods:
     - Setting and resetting an argument value (`SetValue`, `ResetValue`).
     - Enabling, disabling and toggling of boolean flags (`EnableFlag`, `DisableFlag`, `ToggleFlag`).
